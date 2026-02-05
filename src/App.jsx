@@ -1,0 +1,80 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AdminProvider, useAdmin } from './context/AdminContext';
+
+// Layouts
+import MainLayout from './layouts/MainLayout';
+
+// Pages
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+import Blogs from './pages/Blogs';
+import Orders from './pages/Orders';
+import Customers from './pages/Customers';
+import Analytics from './pages/Analytics';
+import SEO from './pages/SEO';
+import Settings from './pages/Settings';
+import ProductTypes from './pages/ProductTypes';
+
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAdmin();
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
+
+// Public Route Component (redirect to dashboard if already authenticated)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated } = useAdmin();
+  return !isAuthenticated ? children : <Navigate to="/" replace />;
+};
+
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
+
+      {/* Protected Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="products" element={<Products />} />
+        <Route path="product-types" element={<ProductTypes />} />
+        <Route path="blogs" element={<Blogs />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="seo" element={<SEO />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+
+      {/* Catch all - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AdminProvider>
+        <AppRoutes />
+      </AdminProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
