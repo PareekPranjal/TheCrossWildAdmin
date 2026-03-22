@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
-import { Plus, Edit, Trash2, Search, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Eye, FileText } from 'lucide-react';
 import BlogModal from '../components/BlogModal';
 
 const Blogs = () => {
@@ -9,7 +9,6 @@ const Blogs = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState(null);
 
-  // Filter blogs
   const filteredBlogs = blogs.filter(blog =>
     blog.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     blog.paragraph?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -31,19 +30,61 @@ const Blogs = () => {
     setIsModalOpen(true);
   };
 
+  // Collect all unique tags with counts
+  const tagCounts = {};
+  blogs.forEach(b => {
+    (b.tags || []).forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  const sortedTags = Object.entries(tagCounts).sort(([, a], [, b]) => b - a);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Blog Posts</h1>
-          <p className="text-gray-600 mt-2">Manage your blog content</p>
+          <p className="text-gray-600 mt-1">Manage your blog content</p>
         </div>
         <button onClick={handleAdd} className="btn-primary flex items-center gap-2">
           <Plus className="w-5 h-5" />
           Add Blog Post
         </button>
       </div>
+
+      {/* Total Count */}
+      <div className="card bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-purple-500 rounded-xl flex items-center justify-center">
+            <FileText className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <p className="text-sm text-purple-700 font-medium">Total Blog Posts</p>
+            <p className="text-3xl font-bold text-gray-900">{blogs.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tags Overview */}
+      {sortedTags.length > 0 && (
+        <div className="card">
+          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">Tags</h3>
+          <div className="flex flex-wrap gap-2">
+            {sortedTags.map(([tag, count]) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold"
+              >
+                {tag}
+                <span className="bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                  {count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="card">
@@ -56,22 +97,6 @@ const Blogs = () => {
             className="input-field pl-10"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card">
-          <p className="text-sm text-gray-600">Total Posts</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{blogs.length}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-gray-600">Published</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{blogs.length}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-gray-600">Drafts</p>
-          <p className="text-2xl font-bold text-yellow-600 mt-1">0</p>
         </div>
       </div>
 
@@ -116,8 +141,14 @@ const Blogs = () => {
                 {/* Author & Date */}
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <span>{blog.author?.name || 'Unknown'}</span>
-                  <span>•</span>
+                  <span>-</span>
                   <span>{blog.publishDate || '2025'}</span>
+                  {blog.views > 0 && (
+                    <>
+                      <span>-</span>
+                      <span>{blog.views} views</span>
+                    </>
+                  )}
                 </div>
 
                 {/* Actions */}

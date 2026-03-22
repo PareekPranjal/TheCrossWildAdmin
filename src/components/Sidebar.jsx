@@ -4,14 +4,9 @@ import {
   LayoutDashboard,
   Package,
   FileText,
-  ShoppingCart,
-  Users,
-  Settings,
   LogOut,
   X,
-  BarChart3,
   Search,
-  Layers
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -21,13 +16,8 @@ const Sidebar = () => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Package, label: 'Products', path: '/products' },
-    { icon: Layers, label: 'Product Types', path: '/product-types' },
     { icon: FileText, label: 'Blogs', path: '/blogs' },
-    { icon: ShoppingCart, label: 'Orders', path: '/orders' },
-    { icon: Users, label: 'Customers', path: '/customers' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
     { icon: Search, label: 'SEO', path: '/seo' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   const handleLogout = () => {

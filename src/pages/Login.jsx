@@ -26,15 +26,19 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    const result = login(formData);
+    try {
+      const result = await login(formData);
 
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error || 'Invalid credentials');
+      if (result.success) {
+        navigate('/');
+      } else {
+        setError(result.error || 'Invalid credentials');
+      }
+    } catch {
+      setError('Connection failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

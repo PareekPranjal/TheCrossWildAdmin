@@ -10,12 +10,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Blogs from './pages/Blogs';
-import Orders from './pages/Orders';
-import Customers from './pages/Customers';
-import Analytics from './pages/Analytics';
 import SEO from './pages/SEO';
-import Settings from './pages/Settings';
-import ProductTypes from './pages/ProductTypes';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -52,13 +47,8 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="products" element={<Products />} />
-        <Route path="product-types" element={<ProductTypes />} />
         <Route path="blogs" element={<Blogs />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="analytics" element={<Analytics />} />
         <Route path="seo" element={<SEO />} />
-        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Catch all - redirect to login */}

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API Base URL - change this to your deployed backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://crosswild-backend-p5l3.onrender.com/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -10,6 +10,41 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Attach JWT token to every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('adminToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 responses globally (expired/invalid token)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminAuth');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  login: async (credentials) => {
+    const response = await api.post('/auth/login', credentials);
+    return response.data;
+  },
+
+  verify: async () => {
+    const response = await api.get('/auth/verify');
+    return response.data;
+  },
+};
 
 // Products API
 export const productsAPI = {
@@ -145,9 +180,10 @@ export const ordersAPI = {
 
 // Upload API
 export const uploadAPI = {
-  uploadImage: async (file) => {
+  uploadImage: async (file, category = 'general') => {
     const formData = new FormData();
     formData.append('image', file);
+    formData.append('category', category);
 
     const response = await api.post('/upload', formData, {
       headers: {
@@ -157,8 +193,8 @@ export const uploadAPI = {
     return response.data;
   },
 
-  uploadBase64: async (base64Data) => {
-    const response = await api.post('/upload/base64', { imageData: base64Data });
+  uploadBase64: async (base64Data, category = 'general') => {
+    const response = await api.post('/upload/base64', { imageData: base64Data, category });
     return response.data;
   },
 };

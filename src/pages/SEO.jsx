@@ -20,9 +20,7 @@ import {
   Share2,
   BarChart3,
 } from 'lucide-react';
-import { seoAPI } from '../services/api';
-
-const IMGBB_API_KEY = 'b3e7ddae853c3a74bf0434c529e1dd7f';
+import { seoAPI, uploadAPI } from '../services/api';
 
 // Tabs for different sections
 const TABS = [
@@ -135,44 +133,15 @@ const SEO = () => {
     setTimeout(() => setMessage({ type: '', text: '' }), 5000);
   };
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64Data = reader.result;
-          const base64String = base64Data.includes('base64,')
-            ? base64Data.split('base64,')[1]
-            : base64Data;
-
-          const formData = new FormData();
-          formData.append('image', base64String);
-          formData.append('key', IMGBB_API_KEY);
-
-          const response = await fetch('https://api.imgbb.com/1/upload', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) throw new Error('Upload failed');
-          const data = await response.json();
-          resolve(data.data.url);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
+  // Upload image via backend (Cloudinary)
   const handleImageUpload = async (e, field) => {
     const file = e.target.files[0];
     if (!file) return;
 
     try {
       setSaving(true);
-      const url = await uploadToImgBB(file);
+      const result = await uploadAPI.uploadImage(file);
+      const url = result.imageUrl;
 
       if (field === 'ogImage') {
         setGlobalSettings(prev => ({ ...prev, defaultOgImage: url }));

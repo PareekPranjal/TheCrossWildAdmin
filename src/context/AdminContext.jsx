@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { productsAPI, blogsAPI, ordersAPI, productTypesAPI } from '../services/api';
+import { productsAPI, blogsAPI, productTypesAPI, ordersAPI, authAPI } from '../services/api';
 
 const AdminContext = createContext();
 
@@ -11,19 +11,6 @@ export const useAdmin = () => {
   return context;
 };
 
-// Fallback categories when API product types aren't available
-const DEFAULT_CATEGORIES = [
-  { id: 'tshirts', name: 'T-Shirts', icon: '👕' },
-  { id: 'sweatshirts', name: 'Sweatshirts', icon: '🧥' },
-  { id: 'caps', name: 'Caps', icon: '🧢' },
-  { id: 'bags', name: 'Bags', icon: '🎒' },
-  { id: 'mugs', name: 'Mugs', icon: '☕' },
-  { id: 'cards', name: 'Business Cards', icon: '💳' },
-  { id: 'printing', name: 'Printing', icon: '🖨️' },
-  { id: 'uniforms', name: 'Uniforms', icon: '👔' },
-  { id: 'gifts', name: 'Gifts', icon: '🎁' },
-];
-
 export const AdminProvider = ({ children }) => {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -32,8 +19,6 @@ export const AdminProvider = ({ children }) => {
   // Data states
   const [products, setProducts] = useState([]);
   const [blogs, setBlogs] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [productTypes, setProductTypes] = useState([]);
 
   // UI states
@@ -43,44 +28,44 @@ export const AdminProvider = ({ children }) => {
   // Initialize data from localStorage and API
   useEffect(() => {
     const storedAuth = localStorage.getItem('adminAuth');
-    if (storedAuth) {
+    const token = localStorage.getItem('adminToken');
+    if (storedAuth && token) {
       const authData = JSON.parse(storedAuth);
       setIsAuthenticated(authData.isAuthenticated);
       setUser(authData.user);
     }
 
-    // Load data from API
     loadProducts();
     loadBlogs();
-    loadOrders();
     loadProductTypes();
   }, []);
 
   // Auth functions
-  const login = (credentials) => {
-    // Simple authentication (replace with your backend API)
-    if (credentials.email === 'admin@thecrosswild.com' && credentials.password === 'admin123') {
-      const userData = {
-        id: 1,
-        name: 'Admin User',
-        email: credentials.email,
-        role: 'admin',
-      };
-      setIsAuthenticated(true);
-      setUser(userData);
-      localStorage.setItem('adminAuth', JSON.stringify({
-        isAuthenticated: true,
-        user: userData,
-      }));
-      return { success: true };
+  const login = async (credentials) => {
+    try {
+      const response = await authAPI.login(credentials);
+      if (response.success && response.token) {
+        localStorage.setItem('adminToken', response.token);
+        localStorage.setItem('adminAuth', JSON.stringify({
+          isAuthenticated: true,
+          user: response.user,
+        }));
+        setIsAuthenticated(true);
+        setUser(response.user);
+        return { success: true };
+      }
+      return { success: false, error: 'Login failed' };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Invalid credentials';
+      return { success: false, error: message };
     }
-    return { success: false, error: 'Invalid credentials' };
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
     localStorage.removeItem('adminAuth');
+    localStorage.removeItem('adminToken');
   };
 
   // Data loading functions
@@ -89,7 +74,6 @@ export const AdminProvider = ({ children }) => {
       setLoading(true);
       const response = await productsAPI.getAll();
       const productsData = response.products || [];
-      // Map _id to id for compatibility
       const mappedProducts = productsData.map(p => ({
         ...p,
         id: p._id || p.id,
@@ -97,7 +81,6 @@ export const AdminProvider = ({ children }) => {
       setProducts(mappedProducts);
     } catch (error) {
       console.error('Failed to load products:', error);
-      // Fallback to localStorage if API fails
       const stored = localStorage.getItem('adminProducts');
       if (stored) {
         setProducts(JSON.parse(stored));
@@ -111,7 +94,6 @@ export const AdminProvider = ({ children }) => {
     try {
       const response = await blogsAPI.getAll();
       const blogsData = response.blogs || [];
-      // Map _id to id for compatibility
       const mappedBlogs = blogsData.map(b => ({
         ...b,
         id: b._id || b.id,
@@ -126,25 +108,6 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  const loadOrders = async () => {
-    try {
-      const response = await ordersAPI.getAll();
-      const ordersData = response.orders || [];
-      // Map _id to id for compatibility
-      const mappedOrders = ordersData.map(o => ({
-        ...o,
-        id: o._id || o.id,
-      }));
-      setOrders(mappedOrders);
-    } catch (error) {
-      console.error('Failed to load orders:', error);
-      const stored = localStorage.getItem('adminOrders');
-      if (stored) {
-        setOrders(JSON.parse(stored));
-      }
-    }
-  };
-
   const loadProductTypes = async () => {
     try {
       const response = await productTypesAPI.getAll();
@@ -154,33 +117,21 @@ export const AdminProvider = ({ children }) => {
         id: t._id || t.id,
       }));
       setProductTypes(mappedTypes);
-
-      // Build categories from product types for backward compatibility
-      if (mappedTypes.length > 0) {
-        const dynamicCategories = mappedTypes
-          .filter(t => t.isActive !== false)
-          .map(t => ({
-            id: t.slug,
-            name: t.name,
-            icon: t.icon || '📦',
-            _id: t.id,
-          }));
-        setCategories(dynamicCategories);
-      }
     } catch (error) {
       console.error('Failed to load product types:', error);
-      // Keep default categories as fallback
     }
   };
 
   // Product CRUD operations
-  const addProduct = async (product) => {
+  const addProduct = async (productData) => {
     try {
       setLoading(true);
-      const response = await productsAPI.create(product);
+      const response = await productsAPI.create(productData);
+      // API returns { success, message, product } — extract the product
+      const saved = response.product || response;
       const newProduct = {
-        ...response,
-        id: response._id || response.id,
+        ...saved,
+        id: saved._id || saved.id,
       };
       setProducts([...products, newProduct]);
       return newProduct;
@@ -195,8 +146,11 @@ export const AdminProvider = ({ children }) => {
   const updateProduct = async (id, updates) => {
     try {
       setLoading(true);
-      await productsAPI.update(id, updates);
-      const updated = products.map(p => p.id === id ? { ...p, ...updates } : p);
+      const response = await productsAPI.update(id, updates);
+      // API returns { success, message, product } — use the saved product from server
+      const saved = response.product || response;
+      const updatedProduct = { ...saved, id: saved._id || saved.id };
+      const updated = products.map(p => p.id === id ? updatedProduct : p);
       setProducts(updated);
     } catch (error) {
       console.error('Failed to update product:', error);
@@ -214,72 +168,6 @@ export const AdminProvider = ({ children }) => {
       setProducts(updated);
     } catch (error) {
       console.error('Failed to delete product:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Product Type CRUD operations
-  const addProductType = async (typeData) => {
-    try {
-      setLoading(true);
-      const response = await productTypesAPI.create(typeData);
-      const newType = {
-        ...response.productType,
-        id: response.productType._id || response.productType.id,
-      };
-      setProductTypes([...productTypes, newType]);
-      // Refresh categories
-      await loadProductTypes();
-      return newType;
-    } catch (error) {
-      console.error('Failed to add product type:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateProductType = async (id, updates) => {
-    try {
-      setLoading(true);
-      await productTypesAPI.update(id, updates);
-      const updated = productTypes.map(t => t.id === id ? { ...t, ...updates } : t);
-      setProductTypes(updated);
-      // Refresh categories
-      await loadProductTypes();
-    } catch (error) {
-      console.error('Failed to update product type:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteProductType = async (id) => {
-    try {
-      setLoading(true);
-      await productTypesAPI.delete(id);
-      const updated = productTypes.filter(t => t.id !== id);
-      setProductTypes(updated);
-      // Refresh categories
-      await loadProductTypes();
-    } catch (error) {
-      console.error('Failed to delete product type:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const seedProductTypes = async () => {
-    try {
-      setLoading(true);
-      await productTypesAPI.seed();
-      await loadProductTypes();
-    } catch (error) {
-      console.error('Failed to seed product types:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -334,21 +222,19 @@ export const AdminProvider = ({ children }) => {
   };
 
   // Order operations
-  const addOrder = async (order) => {
+  const [orders, setOrders] = useState([]);
+
+  const loadOrders = async () => {
     try {
-      setLoading(true);
-      const response = await ordersAPI.create(order);
-      const newOrder = {
-        ...response,
-        id: response._id || response.id,
-      };
-      setOrders([...orders, newOrder]);
-      return newOrder;
+      const response = await ordersAPI.getAll();
+      const ordersData = response.orders || [];
+      const mappedOrders = ordersData.map(o => ({
+        ...o,
+        id: o._id || o.id,
+      }));
+      setOrders(mappedOrders);
     } catch (error) {
-      console.error('Failed to add order:', error);
-      throw error;
-    } finally {
-      setLoading(false);
+      console.error('Failed to load orders:', error);
     }
   };
 
@@ -370,10 +256,54 @@ export const AdminProvider = ({ children }) => {
     try {
       setLoading(true);
       await ordersAPI.delete(id);
-      const updated = orders.filter(o => o.id !== id);
-      setOrders(updated);
+      setOrders(orders.filter(o => o.id !== id));
     } catch (error) {
       console.error('Failed to delete order:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ProductType operations
+  const addProductType = async (data) => {
+    try {
+      setLoading(true);
+      const response = await productTypesAPI.create(data);
+      const saved = response.productType || response;
+      const newType = { ...saved, id: saved._id || saved.id };
+      setProductTypes([...productTypes, newType]);
+      return newType;
+    } catch (error) {
+      console.error('Failed to add product type:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProductType = async (id, data) => {
+    try {
+      setLoading(true);
+      const response = await productTypesAPI.update(id, data);
+      const saved = response.productType || response;
+      const updatedType = { ...saved, id: saved._id || saved.id };
+      setProductTypes(productTypes.map(t => t.id === id ? updatedType : t));
+    } catch (error) {
+      console.error('Failed to update product type:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProductType = async (id) => {
+    try {
+      setLoading(true);
+      await productTypesAPI.delete(id);
+      setProductTypes(productTypes.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Failed to delete product type:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -390,26 +320,26 @@ export const AdminProvider = ({ children }) => {
     // Data
     products,
     blogs,
-    orders,
-    categories,
     productTypes,
+    orders,
 
     // CRUD operations
     addProduct,
     updateProduct,
     deleteProduct,
-    addProductType,
-    updateProductType,
-    deleteProductType,
-    seedProductTypes,
     addBlog,
     updateBlog,
     deleteBlog,
-    addOrder,
+    loadOrders,
     updateOrderStatus,
     deleteOrder,
+    addProductType,
+    updateProductType,
+    deleteProductType,
 
     // Reload
+    loadProducts,
+    loadBlogs,
     loadProductTypes,
 
     // UI

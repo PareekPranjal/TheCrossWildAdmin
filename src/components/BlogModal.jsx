@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
-
-const IMGBB_API_KEY = 'b3e7ddae853c3a74bf0434c529e1dd7f';
+import { uploadAPI } from '../services/api';
 
 const BlogModal = ({ blog, onClose }) => {
   const { addBlog, updateBlog } = useAdmin();
@@ -72,41 +71,16 @@ const BlogModal = ({ blog, onClose }) => {
     setFormData(prev => ({ ...prev, tags }));
   };
 
-  // Upload image to ImgBB
-  const uploadToImgBB = async (base64Data) => {
-    const formDataImg = new FormData();
-    // Remove the data URL prefix if present
-    const base64String = base64Data.includes('base64,')
-      ? base64Data.split('base64,')[1]
-      : base64Data;
-    formDataImg.append('image', base64String);
-    formDataImg.append('key', IMGBB_API_KEY);
-
-    const response = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      body: formDataImg,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to upload image');
-    }
-
-    const data = await response.json();
-    return data.data.url;
-  };
-
-  // Handle featured image upload
+  // Handle featured image upload via backend (Cloudinary)
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setErrors(prev => ({ ...prev, image: 'Please select an image file' }));
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setErrors(prev => ({ ...prev, image: 'Image size should be less than 5MB' }));
       return;
@@ -116,39 +90,27 @@ const BlogModal = ({ blog, onClose }) => {
     setErrors(prev => ({ ...prev, image: '' }));
 
     try {
+      // Show local preview immediately
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result;
-        setImagePreview(base64Data);
-
-        try {
-          const imageUrl = await uploadToImgBB(base64Data);
-          setFormData(prev => ({
-            ...prev,
-            image: imageUrl,
-            imageData: null
-          }));
-          setImagePreview(imageUrl);
-        } catch (error) {
-          console.error('Upload error:', error);
-          // Store base64 for backend upload as fallback
-          setFormData(prev => ({
-            ...prev,
-            imageData: base64Data,
-            image: ''
-          }));
-        }
-        setUploading(false);
-      };
+      reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
+
+      // Upload via backend → Cloudinary
+      const result = await uploadAPI.uploadImage(file);
+      setFormData(prev => ({
+        ...prev,
+        image: result.imageUrl,
+        imageData: null
+      }));
+      setImagePreview(result.imageUrl);
     } catch (error) {
-      console.error('Error reading file:', error);
-      setErrors(prev => ({ ...prev, image: 'Failed to read image file' }));
-      setUploading(false);
+      console.error('Upload error:', error);
+      setErrors(prev => ({ ...prev, image: 'Failed to upload image' }));
     }
+    setUploading(false);
   };
 
-  // Handle author image upload
+  // Handle author image upload via backend (Cloudinary)
   const handleAuthorImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -167,41 +129,27 @@ const BlogModal = ({ blog, onClose }) => {
     setErrors(prev => ({ ...prev, authorImage: '' }));
 
     try {
+      // Show local preview immediately
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result;
-        setAuthorImagePreview(base64Data);
-
-        try {
-          const imageUrl = await uploadToImgBB(base64Data);
-          setFormData(prev => ({
-            ...prev,
-            author: {
-              ...prev.author,
-              image: imageUrl,
-              imageData: null
-            }
-          }));
-          setAuthorImagePreview(imageUrl);
-        } catch (error) {
-          console.error('Author upload error:', error);
-          setFormData(prev => ({
-            ...prev,
-            author: {
-              ...prev.author,
-              imageData: base64Data,
-              image: ''
-            }
-          }));
-        }
-        setUploadingAuthor(false);
-      };
+      reader.onloadend = () => setAuthorImagePreview(reader.result);
       reader.readAsDataURL(file);
+
+      // Upload via backend → Cloudinary
+      const result = await uploadAPI.uploadImage(file);
+      setFormData(prev => ({
+        ...prev,
+        author: {
+          ...prev.author,
+          image: result.imageUrl,
+          imageData: null
+        }
+      }));
+      setAuthorImagePreview(result.imageUrl);
     } catch (error) {
-      console.error('Error reading file:', error);
-      setErrors(prev => ({ ...prev, authorImage: 'Failed to read image file' }));
-      setUploadingAuthor(false);
+      console.error('Author upload error:', error);
+      setErrors(prev => ({ ...prev, authorImage: 'Failed to upload image' }));
     }
+    setUploadingAuthor(false);
   };
 
   const removeImage = () => {
