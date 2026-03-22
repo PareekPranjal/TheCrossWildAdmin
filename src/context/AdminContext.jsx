@@ -22,10 +22,10 @@ export const AdminProvider = ({ children }) => {
   const [productTypes, setProductTypes] = useState([]);
 
   // UI states
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Initialize data from localStorage and API
+  // Initialize auth from localStorage
   useEffect(() => {
     const storedAuth = localStorage.getItem('adminAuth');
     const token = localStorage.getItem('adminToken');
@@ -34,11 +34,16 @@ export const AdminProvider = ({ children }) => {
       setIsAuthenticated(authData.isAuthenticated);
       setUser(authData.user);
     }
-
-    loadProducts();
-    loadBlogs();
-    loadProductTypes();
   }, []);
+
+  // Only load data AFTER authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadProducts();
+      loadBlogs();
+      loadProductTypes();
+    }
+  }, [isAuthenticated]);
 
   // Auth functions
   const login = async (credentials) => {

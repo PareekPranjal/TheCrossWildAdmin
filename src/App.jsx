@@ -24,6 +24,11 @@ const PublicRoute = ({ children }) => {
   return !isAuthenticated ? children : <Navigate to="/" replace />;
 };
 
+const CatchAllRoute = () => {
+  const { isAuthenticated } = useAdmin();
+  return <Navigate to={isAuthenticated ? '/' : '/login'} replace />;
+};
+
 function AppRoutes() {
   return (
     <Routes>
@@ -51,8 +56,8 @@ function AppRoutes() {
         <Route path="seo" element={<SEO />} />
       </Route>
 
-      {/* Catch all - redirect to login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Catch all - redirect based on auth state */}
+      <Route path="*" element={<CatchAllRoute />} />
     </Routes>
   );
 }

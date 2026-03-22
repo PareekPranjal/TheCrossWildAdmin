@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -12,6 +12,12 @@ import { useAdmin } from '../context/AdminContext';
 
 const Sidebar = () => {
   const { sidebarOpen, setSidebarOpen, logout } = useAdmin();
+  const location = useLocation();
+
+  // Auto-close sidebar on route change (mobile)
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
