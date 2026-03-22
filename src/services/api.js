@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API Base URL - uses VITE_API_URL from .env locally, falls back to production URL on Vercel
-const API_URL = import.meta.env.VITE_API_URL || 'https://the-cross-wild.vercel.app/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://crosswild-backend-p5l3.onrender.com/api';
 
 // Create axios instance with default config
 const api = axios.create({
