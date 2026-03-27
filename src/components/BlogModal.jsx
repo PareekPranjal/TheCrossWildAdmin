@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Loader2, Trash2, Search, Globe, Link2 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { uploadAPI } from '../services/api';
+import RichTextEditor from './RichTextEditor';
 
 const BlogModal = ({ blog, onClose }) => {
   const { addBlog, updateBlog } = useAdmin();
@@ -18,6 +19,18 @@ const BlogModal = ({ blog, onClose }) => {
     },
     tags: [],
     publishDate: new Date().getFullYear().toString(),
+    // SEO fields
+    slug: '',
+    seo: {
+      title: '',
+      description: '',
+      keywords: [],
+      ogImage: '',
+      canonicalUrl: '',
+      otherMetaTags: '',
+      noIndex: false,
+      noFollow: false,
+    },
   });
 
   const [errors, setErrors] = useState({});
@@ -44,6 +57,17 @@ const BlogModal = ({ blog, onClose }) => {
         },
         tags: blog.tags || [],
         publishDate: blog.publishDate || new Date().getFullYear().toString(),
+        slug: blog.slug || '',
+        seo: {
+          title: blog.seo?.title || '',
+          description: blog.seo?.description || '',
+          keywords: blog.seo?.keywords || [],
+          ogImage: blog.seo?.ogImage || '',
+          canonicalUrl: blog.seo?.canonicalUrl || '',
+          otherMetaTags: blog.seo?.otherMetaTags || '',
+          noIndex: blog.seo?.noIndex || false,
+          noFollow: blog.seo?.noFollow || false,
+        },
       });
       setImagePreview(blog.image || '');
       setAuthorImagePreview(blog.author?.image || '');
@@ -204,6 +228,8 @@ const BlogModal = ({ blog, onClose }) => {
       },
       tags: formData.tags,
       publishDate: formData.publishDate,
+      slug: formData.slug || undefined,
+      seo: formData.seo,
     };
 
     // Remove null/empty imageData fields
@@ -327,18 +353,18 @@ const BlogModal = ({ blog, onClose }) => {
             {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
           </div>
 
-          {/* Content */}
+          {/* Content (Rich Text Editor) */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Content *
-            </label>
-            <textarea
-              name="paragraph"
+            <RichTextEditor
+              label={<>Content <span className="text-red-500">*</span></>}
               value={formData.paragraph}
-              onChange={handleChange}
-              rows={8}
-              className={`input-field ${errors.paragraph ? 'border-red-500' : ''}`}
+              onChange={(val) => {
+                setFormData(prev => ({ ...prev, paragraph: val }));
+                if (errors.paragraph) setErrors(prev => ({ ...prev, paragraph: '' }));
+              }}
               placeholder="Write your blog content..."
+              minHeight="300px"
+              note="NOTE: Don't copy content directly from word file or any website. Please copy in notepad and then paste."
             />
             {errors.paragraph && <p className="text-red-500 text-sm mt-1">{errors.paragraph}</p>}
           </div>
@@ -479,6 +505,162 @@ const BlogModal = ({ blog, onClose }) => {
               className="input-field"
               placeholder="2025"
             />
+          </div>
+
+          {/* SEO & Meta Tags */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Search className="w-4 h-4 text-green-600" />
+              SEO & Meta Tags
+            </h3>
+
+            {/* SEO URL / Slug */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-green-600" />
+                  SEO URL
+                </label>
+                {formData.slug && (
+                  <span className="text-xs text-green-600 font-mono">/blog/{formData.slug}</span>
+                )}
+              </div>
+              <input
+                type="text"
+                value={formData.slug}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+                  setFormData(prev => ({ ...prev, slug: val }));
+                }}
+                className="input-field"
+                placeholder="e.g., how-to-choose-custom-tshirts (auto-generated if empty)"
+              />
+              <p className="text-xs text-red-500 mt-1 font-medium">*Use only lowercase letters, numbers, and hyphens. Must be unique.</p>
+            </div>
+
+            {/* Meta Title */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-semibold text-gray-700">Meta Tag Title</label>
+                <span className={`text-xs ${(formData.seo.title?.length || 0) > 60 ? 'text-red-500' : 'text-gray-400'}`}>
+                  {formData.seo.title?.length || 0}/70
+                </span>
+              </div>
+              <input
+                type="text"
+                value={formData.seo.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, title: e.target.value } }))}
+                maxLength={70}
+                className="input-field"
+                placeholder="Meta title for search engines"
+              />
+            </div>
+
+            {/* Meta Description */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-semibold text-gray-700">Meta Tag Description</label>
+                <span className={`text-xs ${(formData.seo.description?.length || 0) > 150 ? 'text-red-500' : 'text-gray-400'}`}>
+                  {formData.seo.description?.length || 0}/160
+                </span>
+              </div>
+              <textarea
+                value={formData.seo.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, description: e.target.value } }))}
+                maxLength={160}
+                rows={2}
+                className="input-field"
+                placeholder="Meta description for search engines"
+              />
+            </div>
+
+            {/* Meta Keywords */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Meta Tag Keywords</label>
+              <input
+                type="text"
+                value={formData.seo.keywords?.join(', ') || ''}
+                onChange={(e) => {
+                  const keywords = e.target.value.split(',').map(k => k.trim()).filter(Boolean);
+                  setFormData(prev => ({ ...prev, seo: { ...prev.seo, keywords } }));
+                }}
+                className="input-field"
+                placeholder="keyword1, keyword2, keyword3"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Canonical URL */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5 text-blue-600" />
+                  Canonical URL
+                </label>
+                <input
+                  type="text"
+                  value={formData.seo.canonicalUrl}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, canonicalUrl: e.target.value } }))}
+                  className="input-field"
+                  placeholder="https://thecrosswild.com/blog/..."
+                />
+              </div>
+
+              {/* OG Image */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">OG Image URL</label>
+                <input
+                  type="text"
+                  value={formData.seo.ogImage}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, ogImage: e.target.value } }))}
+                  className="input-field"
+                  placeholder="Custom Open Graph image URL"
+                />
+              </div>
+            </div>
+
+            {/* Other Meta Tags */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Other Meta Tags</label>
+              <textarea
+                value={formData.seo.otherMetaTags}
+                onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, otherMetaTags: e.target.value } }))}
+                rows={2}
+                className="input-field font-mono text-xs"
+                placeholder='Custom meta tags, JSON-LD structured data, etc.'
+              />
+            </div>
+
+            {/* Robot directives */}
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.seo.noIndex}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, noIndex: e.target.checked } }))}
+                  className="w-4 h-4 text-primary rounded"
+                />
+                <span className="text-sm text-gray-700">No Index</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.seo.noFollow}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seo: { ...prev.seo, noFollow: e.target.checked } }))}
+                  className="w-4 h-4 text-primary rounded"
+                />
+                <span className="text-sm text-gray-700">No Follow</span>
+              </label>
+            </div>
+
+            {/* SEO Preview */}
+            {(formData.seo.title || formData.title) && (
+              <div className="p-3 bg-white border border-gray-200 rounded-lg">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Google Preview</p>
+                <p className="text-blue-700 text-base font-medium truncate">{formData.seo.title || formData.title}</p>
+                <p className="text-green-700 text-xs truncate">thecrosswild.com/blog/{formData.slug || '...'}</p>
+                <p className="text-gray-600 text-sm line-clamp-2">{formData.seo.description || formData.paragraph?.substring(0, 160) || 'No description'}</p>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

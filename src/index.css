@@ -52,3 +52,49 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #1E40AF;
 }
+
+/* ═══════════ Rich Text Editor (Quill) Styles ═══════════ */
+.rich-text-editor .ql-toolbar.ql-snow {
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: #f9fafb;
+  padding: 8px;
+}
+
+.rich-text-editor .ql-container.ql-snow {
+  border: 1px solid #d1d5db;
+  border-top: 0;
+  border-radius: 0 0 0.75rem 0.75rem;
+  font-size: 14px;
+  min-height: 200px;
+}
+
+.rich-text-editor .ql-editor {
+  min-height: 180px;
+  line-height: 1.6;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: normal;
+}
+
+.rich-text-editor .ql-snow .ql-picker.ql-header {
+  width: 110px;
+}
+
+.rich-text-editor .ql-snow .ql-picker.ql-font {
+  width: 120px;
+}
+
+/* Make images inside editor responsive */
+.rich-text-editor .ql-editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Focus state */
+.rich-text-editor .ql-container.ql-snow:focus-within {
+  border-color: #f97316;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.15);
+}

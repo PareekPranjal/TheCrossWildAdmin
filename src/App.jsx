@@ -9,6 +9,7 @@ import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import Categories from './pages/Categories';
 import Blogs from './pages/Blogs';
 import SEO from './pages/SEO';
 
@@ -52,6 +53,7 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="products" element={<Products />} />
+        <Route path="categories" element={<Categories />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="seo" element={<SEO />} />
       </Route>

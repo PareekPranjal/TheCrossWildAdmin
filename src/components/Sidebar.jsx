@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
+  FolderOpen,
   FileText,
   LogOut,
   X,
@@ -22,6 +23,7 @@ const Sidebar = () => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Package, label: 'Products', path: '/products' },
+    { icon: FolderOpen, label: 'Categories', path: '/categories' },
     { icon: FileText, label: 'Blogs', path: '/blogs' },
     { icon: Search, label: 'SEO', path: '/seo' },
   ];
