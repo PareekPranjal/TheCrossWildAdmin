@@ -8,6 +8,7 @@ import {
   LogOut,
   X,
   Search,
+  MapPin,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -25,6 +26,7 @@ const Sidebar = () => {
     { icon: Package, label: 'Products', path: '/products' },
     { icon: FolderOpen, label: 'Categories', path: '/categories' },
     { icon: FileText, label: 'Blogs', path: '/blogs' },
+    { icon: MapPin, label: 'Locations', path: '/locations' },
     { icon: Search, label: 'SEO', path: '/seo' },
   ];
 

@@ -12,6 +12,7 @@ import Products from './pages/Products';
 import Categories from './pages/Categories';
 import Blogs from './pages/Blogs';
 import SEO from './pages/SEO';
+import Locations from './pages/Locations';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="categories" element={<Categories />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="seo" element={<SEO />} />
+        <Route path="locations" element={<Locations />} />
       </Route>
 
       {/* Catch all - redirect based on auth state */}
