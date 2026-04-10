@@ -299,6 +299,11 @@ export const locationsAPI = {
     const response = await api.delete(`/locations/${id}`);
     return response.data;
   },
+
+  seed: async (locations) => {
+    const response = await api.post('/locations/seed', { locations });
+    return response.data;
+  },
 };
 
 // Health check
