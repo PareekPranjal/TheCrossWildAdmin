@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Search,
   Globe,
   FileText,
   Settings,
@@ -19,15 +18,21 @@ import {
   Code,
   Share2,
   BarChart3,
+  Package,
+  Wand2,
+  ChevronDown,
+  HelpCircle,
+  Building2,
 } from 'lucide-react';
 import { seoAPI, uploadAPI } from '../services/api';
 
 // Tabs for different sections
 const TABS = [
-  { id: 'global', label: 'Global Settings', icon: Globe },
-  { id: 'pages', label: 'Page SEO', icon: FileText },
-  { id: 'social', label: 'Social & Tracking', icon: Share2 },
-  { id: 'advanced', label: 'Advanced', icon: Code },
+  { id: 'global',  label: 'Global Settings', icon: Globe },
+  { id: 'pages',   label: 'Page SEO',         icon: FileText },
+  { id: 'content', label: 'Content SEO',       icon: Package },
+  { id: 'social',  label: 'Social & Tracking', icon: Share2 },
+  { id: 'advanced',label: 'Advanced',          icon: Code },
 ];
 
 // Predefined pages for quick setup
@@ -94,6 +99,21 @@ const SEO = () => {
   const [editingPage, setEditingPage] = useState(null);
   const [showPageModal, setShowPageModal] = useState(false);
 
+  // Content SEO state
+  const [contentItems, setContentItems] = useState({ products: [], blogs: [], categories: [] });
+  const [contentSubTab, setContentSubTab] = useState('products');
+  const [editingContent, setEditingContent] = useState(null);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+
+  // Schemas (LocalBusiness + FAQ) — loaded into globalSettings, saved with it
+  const [faqItems, setFaqItems] = useState([]);
+  const [localBusiness, setLocalBusiness] = useState({
+    telephone: '', email: '', priceRange: '',
+    address: { street: '', city: '', state: '', postalCode: '', country: 'India' },
+    openingHours: 'Mo-Sa 09:00-19:30',
+  });
+
   // Stats
   const [stats, setStats] = useState(null);
 
@@ -109,10 +129,11 @@ const SEO = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [globalResponse, pagesResponse, statsResponse] = await Promise.all([
+      const [globalResponse, pagesResponse, statsResponse, schemasResponse] = await Promise.all([
         seoAPI.getGlobalSettings(),
         seoAPI.getAllPages(),
         seoAPI.getStats(),
+        seoAPI.getSchemas(),
       ]);
 
       if (globalResponse.settings) {
@@ -120,11 +141,73 @@ const SEO = () => {
       }
       setPages(pagesResponse.pages || []);
       setStats(statsResponse.stats || null);
+      if (schemasResponse.localBusiness) setLocalBusiness(prev => ({ ...prev, ...schemasResponse.localBusiness }));
+      if (schemasResponse.faqItems?.length) setFaqItems(schemasResponse.faqItems);
     } catch (error) {
       console.error('Failed to load SEO data:', error);
       showMessage('error', 'Failed to load SEO settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContentItems = async () => {
+    try {
+      setContentLoading(true);
+      const res = await seoAPI.getContentItems();
+      setContentItems({
+        products:   res.products   || [],
+        blogs:      res.blogs      || [],
+        categories: res.categories || [],
+      });
+    } catch (error) {
+      showMessage('error', 'Failed to load content items');
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const handleBulkGenerate = async () => {
+    if (!confirm('Auto-generate SEO for all products, blogs, and categories that are missing SEO data?')) return;
+    try {
+      setBulkGenerating(true);
+      const res = await seoAPI.bulkGenerate();
+      showMessage('success', res.message || 'SEO auto-generated successfully');
+      await loadContentItems();
+      await loadData(); // refresh stats
+    } catch (error) {
+      showMessage('error', 'Failed to auto-generate SEO');
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  const saveContentSEO = async (item, seoData) => {
+    try {
+      setSaving(true);
+      if (item.type === 'product')  await seoAPI.updateProductSEO(item._id, seoData);
+      if (item.type === 'blog')     await seoAPI.updateBlogSEO(item._id, seoData);
+      if (item.type === 'category') await seoAPI.updateCategorySEO(item._id, seoData);
+      await loadContentItems();
+      await loadData();
+      setEditingContent(null);
+      showMessage('success', `${item.name} SEO saved`);
+    } catch (error) {
+      showMessage('error', 'Failed to save SEO');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveSchemas = async () => {
+    try {
+      setSaving(true);
+      await seoAPI.updateSchemas({ localBusiness, faqItems });
+      showMessage('success', 'Schemas saved successfully');
+    } catch (error) {
+      showMessage('error', 'Failed to save schemas');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -316,7 +399,10 @@ const SEO = () => {
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === 'content' && !contentItems.products.length) loadContentItems();
+                }}
                 className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'text-primary border-b-2 border-primary bg-primary/5'
@@ -598,6 +684,116 @@ const SEO = () => {
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
                       </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Content SEO Tab ──────────────────────────────────── */}
+          {activeTab === 'content' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h2 className="text-xl font-semibold text-gray-800">Content SEO</h2>
+                <button
+                  onClick={handleBulkGenerate}
+                  disabled={bulkGenerating}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60"
+                >
+                  {bulkGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                  Auto-Generate Missing SEO
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-500">
+                Edit the SEO title, description, and keywords for every product, blog post, and category on your site.
+              </p>
+
+              {/* Sub-tabs */}
+              <div className="flex border-b border-gray-200">
+                {['products', 'blogs', 'categories'].map((tab) => {
+                  const items = contentItems[tab] || [];
+                  const covered = items.filter((i) => i.hasSEO).length;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setContentSubTab(tab)}
+                      className={`px-5 py-2.5 font-medium capitalize transition-colors flex items-center gap-2 ${
+                        contentSubTab === tab
+                          ? 'text-primary border-b-2 border-primary'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {tab}
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                        covered === items.length && items.length > 0
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-600'
+                      }`}>
+                        {covered}/{items.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Coverage bar */}
+              {(() => {
+                const items = contentItems[contentSubTab] || [];
+                const covered = items.filter((i) => i.hasSEO).length;
+                const pct = items.length ? Math.round((covered / items.length) * 100) : 0;
+                return (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">SEO Coverage</span>
+                      <span className={`text-sm font-bold ${pct === 100 ? 'text-green-600' : pct >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {covered}/{items.length} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Item list */}
+              <div className="space-y-2">
+                {contentLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : (contentItems[contentSubTab] || []).length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg text-gray-500">
+                    No {contentSubTab} found
+                  </div>
+                ) : (
+                  (contentItems[contentSubTab] || []).map((item) => (
+                    <div key={item._id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{item.name}</p>
+                        {item.hasSEO ? (
+                          <p className="text-sm text-gray-500 truncate mt-0.5">{item.seo?.title}</p>
+                        ) : (
+                          <p className="text-sm text-red-500 mt-0.5">No SEO metadata — click Edit to add</p>
+                        )}
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
+                        item.hasSEO ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {item.hasSEO ? '✓ Optimized' : '✗ Missing'}
+                      </span>
+                      <button
+                        onClick={() => setEditingContent({ ...item, type: contentSubTab.slice(0, -1) })}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0 text-sm font-medium text-gray-700"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Edit SEO
+                      </button>
                     </div>
                   ))
                 )}
@@ -970,6 +1166,109 @@ const SEO = () => {
                   </a>
                 </div>
               </div>
+
+              {/* LocalBusiness Schema */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-blue-500" />
+                    LocalBusiness Schema
+                  </h2>
+                  <button
+                    onClick={saveSchemas}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save Schemas
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Telephone</label>
+                    <input type="tel" value={localBusiness.telephone || ''} className="input-field"
+                      placeholder="+91-9529626262"
+                      onChange={(e) => setLocalBusiness(p => ({ ...p, telephone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Price Range</label>
+                    <input type="text" value={localBusiness.priceRange || ''} className="input-field"
+                      placeholder="₹70–₹300"
+                      onChange={(e) => setLocalBusiness(p => ({ ...p, priceRange: e.target.value }))} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Opening Hours</label>
+                    <input type="text" value={localBusiness.openingHours || ''} className="input-field"
+                      placeholder="Mo-Sa 09:00-19:30"
+                      onChange={(e) => setLocalBusiness(p => ({ ...p, openingHours: e.target.value }))} />
+                    <p className="text-xs text-gray-500 mt-1">Schema.org format, e.g. Mo-Sa 09:00-19:30</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
+                    <input type="text" value={localBusiness.address?.street || ''} className="input-field"
+                      onChange={(e) => setLocalBusiness(p => ({ ...p, address: { ...p.address, street: e.target.value } }))} />
+                  </div>
+                  {['city','state','postalCode','country'].map((f) => (
+                    <div key={f}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5 capitalize">{f}</label>
+                      <input type="text" value={localBusiness.address?.[f] || ''} className="input-field"
+                        onChange={(e) => setLocalBusiness(p => ({ ...p, address: { ...p.address, [f]: e.target.value } }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* FAQ Items */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-purple-500" />
+                    FAQ Schema Items
+                  </h2>
+                  <button
+                    onClick={() => setFaqItems(p => [...p, { question: '', answer: '' }])}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add FAQ
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {faqItems.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-6 bg-gray-50 rounded-lg">No FAQ items yet. Add your first FAQ above.</p>
+                  )}
+                  {faqItems.map((faq, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-600">FAQ #{idx + 1}</span>
+                        <button onClick={() => setFaqItems(p => p.filter((_, i) => i !== idx))}
+                          className="p-1 hover:bg-red-100 rounded text-red-500 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Question</label>
+                        <input type="text" value={faq.question} className="input-field"
+                          placeholder="What is the minimum order quantity?"
+                          onChange={(e) => setFaqItems(p => p.map((f, i) => i === idx ? { ...f, question: e.target.value } : f))} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Answer</label>
+                        <textarea value={faq.answer} className="input-field" rows={2}
+                          placeholder="Our minimum order quantity is..."
+                          onChange={(e) => setFaqItems(p => p.map((f, i) => i === idx ? { ...f, answer: e.target.value } : f))} />
+                      </div>
+                    </div>
+                  ))}
+                  {faqItems.length > 0 && (
+                    <button onClick={saveSchemas} disabled={saving}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60 text-sm mt-2">
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Save FAQ Items
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -979,11 +1278,18 @@ const SEO = () => {
       {showPageModal && (
         <PageSEOModal
           page={editingPage}
-          onClose={() => {
-            setShowPageModal(false);
-            setEditingPage(null);
-          }}
+          onClose={() => { setShowPageModal(false); setEditingPage(null); }}
           onSave={savePageSEO}
+          saving={saving}
+        />
+      )}
+
+      {/* Content SEO Modal */}
+      {editingContent && (
+        <ContentSEOModal
+          item={editingContent}
+          onClose={() => setEditingContent(null)}
+          onSave={saveContentSEO}
           saving={saving}
         />
       )}
@@ -1133,6 +1439,141 @@ const PageSEOModal = ({ page, onClose, onSave, saving }) => {
             </button>
             <button type="submit" disabled={saving} className="flex-1 btn-primary">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ── Content SEO Modal ─────────────────────────────────────────────────────────
+const ContentSEOModal = ({ item, onClose, onSave, saving }) => {
+  const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+  const [form, setForm] = useState({
+    title:        item.seo?.title        || '',
+    description:  item.seo?.description  || '',
+    keywords:     item.seo?.keywords     || [],
+    ogImage:      item.seo?.ogImage      || '',
+    canonicalUrl: item.seo?.canonicalUrl || '',
+    noIndex:      item.seo?.noIndex      || false,
+    noFollow:     item.seo?.noFollow     || false,
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(item, form);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">Edit SEO — {typeLabel}</h2>
+            <p className="text-sm text-gray-500 mt-0.5 truncate max-w-xs">{item.name}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              SEO Title <span className="text-gray-400">(max 70 chars)</span>
+            </label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))}
+              className="input-field"
+              maxLength={70}
+              placeholder={`${item.name} | The CrossWild`}
+            />
+            <div className="flex items-center justify-between mt-1">
+              <p className={`text-xs ${form.title.length > 60 ? 'text-yellow-600' : 'text-gray-400'}`}>
+                {form.title.length}/70 — {form.title.length <= 60 ? 'Good' : form.title.length <= 70 ? 'Slightly long' : 'Too long'}
+              </p>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Meta Description <span className="text-gray-400">(max 160 chars)</span>
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
+              className="input-field"
+              rows={3}
+              maxLength={160}
+              placeholder="Describe this page in 120–160 characters…"
+            />
+            <p className={`text-xs mt-1 ${form.description.length > 155 ? 'text-yellow-600' : form.description.length >= 120 ? 'text-green-600' : 'text-gray-400'}`}>
+              {form.description.length}/160
+            </p>
+          </div>
+
+          {/* Keywords */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Keywords <span className="text-gray-400">(comma separated)</span>
+            </label>
+            <input
+              type="text"
+              value={form.keywords.join(', ')}
+              onChange={(e) => setForm(p => ({ ...p, keywords: e.target.value.split(',').map(k => k.trim()).filter(Boolean) }))}
+              className="input-field"
+              placeholder="custom t-shirts, manufacturer, Jaipur"
+            />
+          </div>
+
+          {/* OG Image */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">OG Image URL</label>
+            <input
+              type="url"
+              value={form.ogImage}
+              onChange={(e) => setForm(p => ({ ...p, ogImage: e.target.value }))}
+              className="input-field"
+              placeholder="https://…"
+            />
+          </div>
+
+          {/* Canonical */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Canonical URL</label>
+            <input
+              type="url"
+              value={form.canonicalUrl}
+              onChange={(e) => setForm(p => ({ ...p, canonicalUrl: e.target.value }))}
+              className="input-field"
+              placeholder="https://thecrosswild.com/products/..."
+            />
+          </div>
+
+          {/* Robots */}
+          <div className="flex gap-6">
+            {[['noIndex','No Index (hide from Google)'],['noFollow','No Follow']].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form[key]}
+                  onChange={(e) => setForm(p => ({ ...p, [key]: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 accent-primary" />
+                <span className="text-sm text-gray-700">{label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60 font-medium">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save SEO
             </button>
           </div>
         </form>

@@ -14,6 +14,7 @@ export const useAdmin = () => {
 export const AdminProvider = ({ children }) => {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [user, setUser] = useState(null);
 
   // Data states
@@ -34,6 +35,7 @@ export const AdminProvider = ({ children }) => {
       setIsAuthenticated(authData.isAuthenticated);
       setUser(authData.user);
     }
+    setAuthInitialized(true);
   }, []);
 
   // Only load data AFTER authentication
@@ -318,6 +320,7 @@ export const AdminProvider = ({ children }) => {
   const value = {
     // Auth
     isAuthenticated,
+    authInitialized,
     user,
     login,
     logout,

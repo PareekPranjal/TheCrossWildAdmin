@@ -13,21 +13,25 @@ import Categories from './pages/Categories';
 import Blogs from './pages/Blogs';
 import SEO from './pages/SEO';
 import Locations from './pages/Locations';
+import PageContent from './pages/PageContent';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAdmin();
+  const { isAuthenticated, authInitialized } = useAdmin();
+  if (!authInitialized) return null;
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 // Public Route Component (redirect to dashboard if already authenticated)
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated } = useAdmin();
+  const { isAuthenticated, authInitialized } = useAdmin();
+  if (!authInitialized) return null;
   return !isAuthenticated ? children : <Navigate to="/" replace />;
 };
 
 const CatchAllRoute = () => {
-  const { isAuthenticated } = useAdmin();
+  const { isAuthenticated, authInitialized } = useAdmin();
+  if (!authInitialized) return null;
   return <Navigate to={isAuthenticated ? '/' : '/login'} replace />;
 };
 
@@ -58,6 +62,7 @@ function AppRoutes() {
         <Route path="blogs" element={<Blogs />} />
         <Route path="seo" element={<SEO />} />
         <Route path="locations" element={<Locations />} />
+        <Route path="page-content" element={<PageContent />} />
       </Route>
 
       {/* Catch all - redirect based on auth state */}

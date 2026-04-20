@@ -271,6 +271,43 @@ export const seoAPI = {
     const response = await api.get('/seo/stats');
     return response.data;
   },
+
+  // Schemas (LocalBusiness + FAQ)
+  getSchemas: async () => {
+    const response = await api.get('/seo/schemas');
+    return response.data;
+  },
+
+  updateSchemas: async (schemas) => {
+    const response = await api.put('/seo/schemas', schemas);
+    return response.data;
+  },
+
+  // Content SEO — products, blogs, categories
+  getContentItems: async () => {
+    const response = await api.get('/seo/content-items');
+    return response.data;
+  },
+
+  updateProductSEO: async (id, seoData) => {
+    const response = await api.put(`/seo/product/${id}`, seoData);
+    return response.data;
+  },
+
+  updateBlogSEO: async (id, seoData) => {
+    const response = await api.put(`/seo/blog/${id}`, seoData);
+    return response.data;
+  },
+
+  updateCategorySEO: async (id, seoData) => {
+    const response = await api.put(`/seo/category/${id}`, seoData);
+    return response.data;
+  },
+
+  bulkGenerate: async () => {
+    const response = await api.post('/seo/bulk-generate');
+    return response.data;
+  },
 };
 
 // Locations API
@@ -302,6 +339,29 @@ export const locationsAPI = {
 
   seed: async (locations) => {
     const response = await api.post('/locations/seed', { locations });
+    return response.data;
+  },
+};
+
+// Page Content API
+export const contentAPI = {
+  getPage: async (pageSlug) => {
+    const response = await api.get(`/content/${pageSlug}`);
+    return response.data;
+  },
+
+  getSection: async (pageSlug, sectionKey) => {
+    const response = await api.get(`/content/${pageSlug}/${sectionKey}`);
+    return response.data;
+  },
+
+  upsertSection: async (pageSlug, sectionKey, data) => {
+    const response = await api.put(`/content/${pageSlug}/${sectionKey}`, { data });
+    return response.data;
+  },
+
+  getAllPages: async () => {
+    const response = await api.get('/content');
     return response.data;
   },
 };
