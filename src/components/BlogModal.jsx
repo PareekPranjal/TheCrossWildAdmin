@@ -19,6 +19,7 @@ const BlogModal = ({ blog, onClose }) => {
     },
     tags: [],
     publishDate: new Date().getFullYear().toString(),
+    showOnHome: false,
     // SEO fields
     slug: '',
     seo: {
@@ -57,6 +58,7 @@ const BlogModal = ({ blog, onClose }) => {
         },
         tags: blog.tags || [],
         publishDate: blog.publishDate || new Date().getFullYear().toString(),
+        showOnHome: blog.showOnHome || false,
         slug: blog.slug || '',
         seo: {
           title: blog.seo?.title || '',
@@ -228,6 +230,7 @@ const BlogModal = ({ blog, onClose }) => {
       },
       tags: formData.tags,
       publishDate: formData.publishDate,
+      showOnHome: formData.showOnHome,
       slug: formData.slug || undefined,
       seo: formData.seo,
     };
@@ -284,6 +287,27 @@ const BlogModal = ({ blog, onClose }) => {
               placeholder="Enter blog title..."
             />
             {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+          </div>
+
+          {/* Show on Home Page toggle */}
+          <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Show on Home Page</p>
+              <p className="text-xs text-gray-500 mt-0.5">Feature this blog in the Blogs section on the homepage</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, showOnHome: !prev.showOnHome }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                formData.showOnHome ? 'bg-amber-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  formData.showOnHome ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Featured Image Upload */}
