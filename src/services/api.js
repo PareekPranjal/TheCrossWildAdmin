@@ -366,6 +366,71 @@ export const contentAPI = {
   },
 };
 
+// Generic CRUD factory for the new admin pages.
+// Most new resources expose: GET / (list), GET /:id, POST /, PUT /:id, DELETE /:id
+function makeCrudAPI(basePath) {
+  return {
+    getAll: async (params = {}) => (await api.get(basePath, { params })).data,
+    getOne: async (id) => (await api.get(`${basePath}/${id}`)).data,
+    create: async (data) => (await api.post(basePath, data)).data,
+    update: async (id, data) => (await api.put(`${basePath}/${id}`, data)).data,
+    delete: async (id) => (await api.delete(`${basePath}/${id}`)).data,
+  };
+}
+
+// Site Settings (singleton)
+export const siteSettingsAPI = {
+  get: async () => (await api.get('/site-settings')).data,
+  update: async (settings) => (await api.put('/site-settings', settings)).data,
+};
+
+export const testimonialsAPI = makeCrudAPI('/testimonials');
+export const brandsAPI = makeCrudAPI('/brands');
+export const dealsAPI = makeCrudAPI('/deals');
+export const galleryAPI = makeCrudAPI('/gallery');
+export const serviceCardsAPI = makeCrudAPI('/service-cards');
+export const whyChooseReasonsAPI = makeCrudAPI('/why-choose-reasons');
+export const homeCapabilitiesAPI = makeCrudAPI('/home-capabilities');
+export const homeProductHighlightsAPI = makeCrudAPI('/home-product-highlights');
+export const homeWhyChooseAPI = makeCrudAPI('/home-why-choose');
+export const processStepsAPI = makeCrudAPI('/process-steps');
+export const categoryHomeCardsAPI = makeCrudAPI('/category-home-cards');
+export const sizeChartsAPI = makeCrudAPI('/size-charts');
+
+// Menus (keyed by string, not Mongo _id)
+export const menusAPI = {
+  getAll: async () => (await api.get('/menus')).data,
+  getByKey: async (key) => (await api.get(`/menus/${key}`)).data,
+  upsert: async ({ key, items }) => (await api.put('/menus', { key, items })).data,
+  delete: async (key) => (await api.delete(`/menus/${key}`)).data,
+};
+
+// Policy pages (keyed by slug)
+export const policyPagesAPI = {
+  getAll: async () => (await api.get('/policy-pages')).data,
+  getBySlug: async (slug) => (await api.get(`/policy-pages/${slug}`)).data,
+  upsert: async (data) => (await api.put('/policy-pages', data)).data,
+  delete: async (slug) => (await api.delete(`/policy-pages/${slug}`)).data,
+};
+
+// Submissions (read + manage, admin-only)
+export const subscribersAPI = {
+  getAll: async () => (await api.get('/subscribers')).data,
+  delete: async (id) => (await api.delete(`/subscribers/${id}`)).data,
+};
+
+export const contactSubmissionsAPI = {
+  getAll: async (params = {}) => (await api.get('/contact-submissions', { params })).data,
+  updateStatus: async (id, status) => (await api.put(`/contact-submissions/${id}/status`, { status })).data,
+  delete: async (id) => (await api.delete(`/contact-submissions/${id}`)).data,
+};
+
+export const quoteSubmissionsAPI = {
+  getAll: async (params = {}) => (await api.get('/quote-submissions', { params })).data,
+  updateStatus: async (id, status) => (await api.put(`/quote-submissions/${id}/status`, { status })).data,
+  delete: async (id) => (await api.delete(`/quote-submissions/${id}`)).data,
+};
+
 // Health check
 export const healthCheck = async () => {
   try {
