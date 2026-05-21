@@ -14,6 +14,19 @@ import Blogs from './pages/Blogs';
 import SEO from './pages/SEO';
 import Locations from './pages/Locations';
 import PageContent from './pages/PageContent';
+import Orders from './pages/Orders';
+import ProductTypes from './pages/ProductTypes';
+import SiteSettings from './pages/SiteSettings';
+import Menus from './pages/Menus';
+import Testimonials from './pages/Testimonials';
+import Brands from './pages/Brands';
+import Deals from './pages/Deals';
+import Gallery from './pages/Gallery';
+import PolicyPages from './pages/PolicyPages';
+import HomeContent from './pages/HomeContent';
+import ServicesPage from './pages/ServicesPage';
+import WhyChooseUsPage from './pages/WhyChooseUsPage';
+import Submissions from './pages/Submissions';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -22,7 +35,6 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
-// Public Route Component (redirect to dashboard if already authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, authInitialized } = useAdmin();
   if (!authInitialized) return null;
@@ -38,7 +50,6 @@ const CatchAllRoute = () => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public Routes */}
       <Route
         path="/login"
         element={
@@ -48,7 +59,6 @@ function AppRoutes() {
         }
       />
 
-      {/* Protected Routes */}
       <Route
         element={
           <ProtectedRoute>
@@ -58,14 +68,32 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="products" element={<Products />} />
+        <Route path="product-types" element={<ProductTypes />} />
         <Route path="categories" element={<Categories />} />
         <Route path="blogs" element={<Blogs />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="seo" element={<SEO />} />
         <Route path="locations" element={<Locations />} />
         <Route path="page-content" element={<PageContent />} />
+
+        {/* CMS — site-wide */}
+        <Route path="site-settings" element={<SiteSettings />} />
+        <Route path="menus" element={<Menus />} />
+        <Route path="testimonials" element={<Testimonials />} />
+        <Route path="brands" element={<Brands />} />
+        <Route path="deals" element={<Deals />} />
+        <Route path="gallery" element={<Gallery />} />
+        <Route path="policy-pages" element={<PolicyPages />} />
+
+        {/* CMS — per-page */}
+        <Route path="home-content" element={<HomeContent />} />
+        <Route path="services-page" element={<ServicesPage />} />
+        <Route path="why-choose-us-page" element={<WhyChooseUsPage />} />
+
+        {/* Inbox */}
+        <Route path="submissions" element={<Submissions />} />
       </Route>
 
-      {/* Catch all - redirect based on auth state */}
       <Route path="*" element={<CatchAllRoute />} />
     </Routes>
   );

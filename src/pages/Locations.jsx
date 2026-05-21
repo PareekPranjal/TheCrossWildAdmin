@@ -3,7 +3,7 @@ import {
   Plus, Edit2, Trash2, MapPin, X, Loader2, Save,
   Eye, EyeOff, ExternalLink, Image as ImageIcon, RefreshCw,
 } from 'lucide-react';
-import { locationsAPI } from '../services/api';
+import { locationsAPI, uploadAPI } from '../services/api';
 
 // ─── Default seed data (all 13 SEO pages) ─────────────────────────────────────
 const DEFAULT_SEED_PAGES = [
@@ -221,22 +221,51 @@ const EditableList = ({ items, onChange, placeholder }) => {
   );
 };
 
-// Image path list with inline preview
+// Image path list with inline preview + per-row Cloudinary upload
 const ImagePathList = ({ items, onChange, placeholder }) => {
   const update = (i, v) => { const a = [...items]; a[i] = v; onChange(a); };
   const add    = () => onChange([...items, '']);
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i));
+
+  const uploadAtIndex = async (i, file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+    try {
+      const res = await uploadAPI.uploadImage(file, 'banners');
+      update(i, res.imageUrl);
+    } catch (err) {
+      alert('Upload failed');
+    }
+  };
+
+  const uploadNew = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+    try {
+      const res = await uploadAPI.uploadImage(file, 'banners');
+      onChange([...items, res.imageUrl]);
+    } catch (err) {
+      alert('Upload failed');
+    }
+  };
+
   return (
     <div className="space-y-3">
       {items.map((src, i) => (
         <div key={i} className="flex gap-2 items-start">
           <div className="flex-1 space-y-1">
-            <Input
-              value={src}
-              onChange={e => update(i, e.target.value)}
-              placeholder={placeholder}
-              className="font-mono text-xs"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={src}
+                onChange={e => update(i, e.target.value)}
+                placeholder={placeholder}
+                className="font-mono text-xs flex-1"
+              />
+              <label className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg cursor-pointer hover:bg-orange-100 flex items-center gap-1 whitespace-nowrap">
+                <ImageIcon className="w-3.5 h-3.5" /> Upload
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && uploadAtIndex(i, e.target.files[0])} />
+              </label>
+            </div>
             {src && (
               <div className="w-full h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                 <img
@@ -254,12 +283,18 @@ const ImagePathList = ({ items, onChange, placeholder }) => {
           </button>
         </div>
       ))}
-      <button type="button" onClick={add}
-        className="flex items-center gap-1 text-sm text-orange-600 hover:underline font-medium">
-        <ImageIcon className="w-4 h-4" /> Add image path
-      </button>
+      <div className="flex gap-2">
+        <button type="button" onClick={add}
+          className="flex items-center gap-1 text-sm text-orange-600 hover:underline font-medium">
+          <ImageIcon className="w-4 h-4" /> Add empty row
+        </button>
+        <label className="flex items-center gap-1 text-sm text-orange-600 hover:underline font-medium cursor-pointer">
+          <ImageIcon className="w-4 h-4" /> Upload & add
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && uploadNew(e.target.files[0])} />
+        </label>
+      </div>
       <p className="text-xs text-gray-400 leading-relaxed">
-        Use paths relative to <code className="bg-gray-100 px-1 rounded">/public</code>, e.g.{' '}
+        Upload uses Cloudinary. You can also paste a URL or a path like{' '}
         <code className="bg-gray-100 px-1 rounded">/images/fileBanners/indore/tshirt/indor-CTA-1.webp</code>
       </p>
     </div>
@@ -524,12 +559,26 @@ const LocationModal = ({ location, onClose, onSaved }) => {
             {activeTab === 'images' && (
               <div className="space-y-6">
 
-                <Field label="Hero Banner Image" hint="Full-width image shown at the top of the page (URL or /images/... path)">
-                  <Input
-                    value={form.image}
-                    onChange={e => set('image', e.target.value)}
-                    placeholder="/images/fileBanners/indore/tshirt/indor-CTA-1.webp or https://..."
-                  />
+                <Field label="Hero Banner Image" hint="Full-width image shown at the top of the page. Upload to Cloudinary, or paste a URL / /images/ path.">
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.image}
+                      onChange={e => set('image', e.target.value)}
+                      placeholder="/images/fileBanners/indore/tshirt/indor-CTA-1.webp or https://..."
+                      className="flex-1"
+                    />
+                    <label className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg cursor-pointer hover:bg-orange-100 flex items-center gap-1 whitespace-nowrap">
+                      <ImageIcon className="w-3.5 h-3.5" /> Upload
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const f = e.target.files[0]; if (!f) return;
+                        if (f.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+                        try {
+                          const res = await uploadAPI.uploadImage(f, 'banners');
+                          set('image', res.imageUrl);
+                        } catch (_) { alert('Upload failed'); }
+                      }} />
+                    </label>
+                  </div>
                   {form.image && (
                     <div className="mt-2 w-full h-28 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
                       <img src={form.image} alt="hero preview" className="w-full h-full object-cover"

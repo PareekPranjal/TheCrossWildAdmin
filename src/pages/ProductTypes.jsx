@@ -1,538 +1,208 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Layers, Download } from 'lucide-react';
-import { useAdmin } from '../context/AdminContext';
+import React, { useEffect, useState } from 'react';
+import { Plus, Edit, Trash2, X, Loader2, RefreshCw } from 'lucide-react';
+import { productTypesAPI } from '../services/api';
 
-const FIELD_TYPES = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Dropdown (Select)' },
-  { value: 'multiselect', label: 'Multi-Select' },
-  { value: 'boolean', label: 'Yes/No (Boolean)' },
-];
+const FIELD_TYPES = ['text', 'number', 'select', 'multiselect', 'boolean'];
 
-const ProductTypes = () => {
-  const { productTypes, addProductType, updateProductType, deleteProductType, seedProductTypes, loading } = useAdmin();
-  const [showModal, setShowModal] = useState(false);
-  const [editingType, setEditingType] = useState(null);
-  const [expandedType, setExpandedType] = useState(null);
+export default function ProductTypes() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
-  const handleEdit = (type) => {
-    setEditingType(type);
-    setShowModal(true);
+  useEffect(() => { load(); }, []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await productTypesAPI.getAll();
+      setItems(res.productTypes || res.types || res.items || []);
+    } finally { setLoading(false); }
   };
 
-  const handleDelete = async (type) => {
-    if (window.confirm(`Are you sure you want to delete "${type.name}"? This won't delete existing products but they will lose their type reference.`)) {
-      try {
-        await deleteProductType(type.id || type._id);
-      } catch (error) {
-        alert('Failed to delete product type.');
-      }
-    }
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this product type?')) return;
+    await productTypesAPI.delete(id);
+    load();
   };
 
   const handleSeed = async () => {
-    if (window.confirm('This will create default product types (T-Shirts, Bags, Bottles, etc.) if none exist. Continue?')) {
-      try {
-        await seedProductTypes();
-      } catch (error) {
-        alert('Failed to seed product types.');
-      }
-    }
+    if (!window.confirm('Seed the default 12 product types? (idempotent — existing ones will be skipped)')) return;
+    setSeeding(true);
+    try { await productTypesAPI.seed(); load(); }
+    finally { setSeeding(false); }
   };
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Product Types</h1>
-          <p className="text-gray-500 mt-1">Manage product types and their custom detail fields</p>
+          <p className="text-gray-600 mt-1">Define dynamic detail-field schemas for products</p>
         </div>
-        <div className="flex gap-3">
-          {productTypes.length === 0 && (
-            <button
-              onClick={handleSeed}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              Load Defaults
-            </button>
-          )}
-          <button
-            onClick={() => { setEditingType(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Product Type
+        <div className="flex gap-2">
+          <button onClick={handleSeed} disabled={seeding} className="btn-secondary flex items-center gap-2">
+            {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Seed Defaults
+          </button>
+          <button onClick={() => { setEditing(null); setModalOpen(true); }} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Type
           </button>
         </div>
       </div>
 
-      {/* Product Types List */}
-      {productTypes.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Layers className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">No Product Types Yet</h3>
-          <p className="text-gray-500 mb-6">Create product types to define custom fields for different product categories.</p>
-          <button
-            onClick={handleSeed}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Download className="w-5 h-5" />
-            Load Default Product Types
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {productTypes.map((type) => (
-            <div key={type.id || type._id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Type Header */}
-              <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                <button
-                  onClick={() => setExpandedType(expandedType === type.id ? null : type.id)}
-                  className="flex items-center gap-3 flex-1 text-left"
-                >
-                  <span className="text-2xl">{type.icon || '📦'}</span>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">{type.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      {type.detailFields?.length || 0} custom fields
-                      {type.hasSizes !== false && ' · Sizes'}
-                      {type.hasColors !== false && ' · Colors'}
-                      {type.isActive === false && ' · Inactive'}
-                    </p>
-                  </div>
-                  {expandedType === type.id ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => handleEdit(type)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(type)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+      {loading ? <div className="card text-center text-gray-500">Loading…</div>
+       : items.length === 0 ? <div className="card text-center text-gray-500">No product types yet — click <strong>Seed Defaults</strong> or add one.</div>
+       : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((t) => (
+            <div key={t._id} className="card space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{t.icon || '📦'}</span>
+                <div className="flex-1">
+                  <div className="font-bold">{t.name}</div>
+                  <div className="text-xs text-gray-500 font-mono">{t.slug}</div>
                 </div>
               </div>
-
-              {/* Expanded Details */}
-              {expandedType === type.id && (
-                <div className="border-t border-gray-200 p-4 bg-gray-50">
-                  {type.description && (
-                    <p className="text-sm text-gray-600 mb-4">{type.description}</p>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">Slug:</span>{' '}
-                      <span className="text-gray-500">{type.slug}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">Has Sizes:</span>{' '}
-                      <span className="text-gray-500">{type.hasSizes !== false ? 'Yes' : 'No'}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">Has Colors:</span>{' '}
-                      <span className="text-gray-500">{type.hasColors !== false ? 'Yes' : 'No'}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-700">Status:</span>{' '}
-                      <span className={type.isActive !== false ? 'text-green-600' : 'text-red-600'}>
-                        {type.isActive !== false ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {type.detailFields?.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-semibold text-gray-700 mb-2 text-sm">Custom Detail Fields:</h4>
-                      <div className="space-y-2">
-                        {type.detailFields.map((field, idx) => (
-                          <div key={idx} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200">
-                            <div className="flex-1">
-                              <span className="font-medium text-gray-800 text-sm">{field.fieldName}</span>
-                              <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                {field.fieldType}
-                              </span>
-                              {field.required && (
-                                <span className="ml-1 text-xs text-red-500">required</span>
-                              )}
-                            </div>
-                            {field.options?.length > 0 && (
-                              <div className="text-xs text-gray-500">
-                                {field.options.join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {type.customSizes?.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-semibold text-gray-700 mb-2 text-sm">Custom Sizes:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {type.customSizes.map((size, idx) => (
-                          <span key={idx} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                            {size}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <p className="text-xs text-gray-600">{t.description}</p>
+              <div className="text-xs text-gray-600 space-y-0.5">
+                <div>Sizes: {t.hasSizes ? '✓' : '✗'} · Colors: {t.hasColors ? '✓' : '✗'}</div>
+                <div>{t.detailFields?.length || 0} detail field(s)</div>
+              </div>
+              <div className="flex gap-2 pt-2 border-t border-gray-200">
+                <button onClick={() => { setEditing(t); setModalOpen(true); }} className="flex-1 btn-secondary text-sm flex items-center justify-center gap-1"><Edit className="w-3.5 h-3.5" />Edit</button>
+                <button onClick={() => handleDelete(t._id)} className="flex-1 btn-danger text-sm flex items-center justify-center gap-1"><Trash2 className="w-3.5 h-3.5" />Delete</button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      {showModal && (
-        <ProductTypeModal
-          productType={editingType}
-          onClose={() => { setShowModal(false); setEditingType(null); }}
-          onSave={async (data) => {
-            try {
-              if (editingType) {
-                await updateProductType(editingType.id || editingType._id, data);
-              } else {
-                await addProductType(data);
-              }
-              setShowModal(false);
-              setEditingType(null);
-            } catch (error) {
-              alert('Failed to save product type. Please try again.');
-            }
-          }}
-        />
+      {modalOpen && (
+        <ProductTypeModal type={editing} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); load(); }} />
       )}
     </div>
   );
-};
+}
 
-// Product Type Modal Component
-const ProductTypeModal = ({ productType, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
-    name: productType?.name || '',
-    icon: productType?.icon || '📦',
-    description: productType?.description || '',
-    hasSizes: productType?.hasSizes !== false,
-    hasColors: productType?.hasColors !== false,
-    customSizes: productType?.customSizes?.join(', ') || '',
-    isActive: productType?.isActive !== false,
-    detailFields: productType?.detailFields || [],
+function ProductTypeModal({ type, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: type?.name || '',
+    icon: type?.icon || '📦',
+    description: type?.description || '',
+    hasSizes: type?.hasSizes !== false,
+    hasColors: type?.hasColors !== false,
+    customSizes: type?.customSizes || [],
+    detailFields: type?.detailFields || [],
+    isActive: type?.isActive !== false,
   });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const [newField, setNewField] = useState({
-    fieldName: '',
-    fieldType: 'text',
-    options: '',
-    required: false,
-    placeholder: '',
-  });
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const addField = () => {
-    if (!newField.fieldName.trim()) {
-      alert('Field name is required');
-      return;
-    }
-
-    const field = {
-      fieldName: newField.fieldName.trim(),
-      fieldType: newField.fieldType,
-      required: newField.required,
-      placeholder: newField.placeholder,
-      options: (newField.fieldType === 'select' || newField.fieldType === 'multiselect')
-        ? newField.options.split(',').map(o => o.trim()).filter(Boolean)
-        : [],
-    };
-
-    setFormData(prev => ({
-      ...prev,
-      detailFields: [...prev.detailFields, field],
-    }));
-
-    setNewField({
-      fieldName: '',
-      fieldType: 'text',
-      options: '',
-      required: false,
-      placeholder: '',
-    });
-  };
-
-  const removeField = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      detailFields: prev.detailFields.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleSubmit = (e) => {
+  const save = async (e) => {
     e.preventDefault();
-
-    if (!formData.name.trim()) {
-      alert('Product type name is required');
-      return;
-    }
-
-    const data = {
-      name: formData.name.trim(),
-      icon: formData.icon,
-      description: formData.description,
-      hasSizes: formData.hasSizes,
-      hasColors: formData.hasColors,
-      isActive: formData.isActive,
-      detailFields: formData.detailFields,
-      customSizes: formData.customSizes
-        ? formData.customSizes.split(',').map(s => s.trim()).filter(Boolean)
-        : [],
-    };
-
-    onSave(data);
+    if (!form.name.trim()) { setError('Name is required'); return; }
+    setSaving(true); setError('');
+    try {
+      if (type?._id) await productTypesAPI.update(type._id, form);
+      else await productTypesAPI.create(form);
+      onSaved();
+    } catch (err) { setError(err?.response?.data?.message || 'Save failed'); }
+    finally { setSaving(false); }
   };
+
+  const addField = () => setForm({ ...form, detailFields: [...form.detailFields, { fieldName: '', fieldType: 'text', options: [], required: false, placeholder: '' }] });
+  const updateField = (i, key, val) => {
+    const next = [...form.detailFields]; next[i] = { ...next[i], [key]: val }; setForm({ ...form, detailFields: next });
+  };
+  const removeField = (i) => setForm({ ...form, detailFields: form.detailFields.filter((_, idx) => idx !== i) });
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {productType ? 'Edit Product Type' : 'Add Product Type'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
-            &times;
+      <form onSubmit={save} className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <h2 className="text-xl font-bold">{type ? 'Edit Product Type' : 'Add Product Type'}</h2>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {error && <div className="p-3 bg-red-50 text-red-700 rounded">{error}</div>}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Name *</label>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" required />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Icon (emoji)</label>
+              <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className="input-field text-center text-xl" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="input-field" />
+          </div>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.hasSizes} onChange={(e) => setForm({ ...form, hasSizes: e.target.checked })} />
+              Has Sizes
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.hasColors} onChange={(e) => setForm({ ...form, hasColors: e.target.checked })} />
+              Has Colors
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+              Active
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Sizes (comma-separated)</label>
+            <input value={(form.customSizes || []).join(', ')}
+              onChange={(e) => setForm({ ...form, customSizes: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+              placeholder="S, M, L, XL" className="input-field" />
+          </div>
+
+          <div className="border-t border-gray-200 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-800 text-sm">Detail Fields</h3>
+              <button type="button" onClick={addField} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="w-3 h-3" /> Add field</button>
+            </div>
+            <div className="space-y-3">
+              {form.detailFields.map((f, i) => (
+                <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="grid grid-cols-12 gap-2">
+                    <input value={f.fieldName} onChange={(e) => updateField(i, 'fieldName', e.target.value)} placeholder="Field name" className="input-field col-span-5" />
+                    <select value={f.fieldType} onChange={(e) => updateField(i, 'fieldType', e.target.value)} className="input-field col-span-3">
+                      {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <input value={f.placeholder || ''} onChange={(e) => updateField(i, 'placeholder', e.target.value)} placeholder="Placeholder" className="input-field col-span-3" />
+                    <button type="button" onClick={() => removeField(i)} className="col-span-1 text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1 text-xs">
+                      <input type="checkbox" checked={f.required} onChange={(e) => updateField(i, 'required', e.target.checked)} />
+                      Required
+                    </label>
+                    {(f.fieldType === 'select' || f.fieldType === 'multiselect') && (
+                      <input
+                        value={(f.options || []).join(', ')}
+                        onChange={(e) => updateField(i, 'options', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+                        placeholder="option1, option2, option3"
+                        className="input-field flex-1 text-xs"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-5 border-t border-gray-200 flex gap-3 sticky bottom-0 bg-white">
+          <button type="button" onClick={onClose} className="flex-1 btn-secondary">Cancel</button>
+          <button type="submit" disabled={saving} className="flex-1 btn-primary flex items-center justify-center gap-2">
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {type ? 'Update' : 'Create'}
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Name and Icon */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="e.g., Track Suits"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Icon</label>
-              <input
-                type="text"
-                name="icon"
-                value={formData.icon}
-                onChange={handleChange}
-                className="input-field text-center text-2xl"
-                placeholder="📦"
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-            <input
-              type="text"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="Brief description of this product type"
-            />
-          </div>
-
-          {/* Options */}
-          <div className="grid grid-cols-3 gap-4">
-            <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-              <input
-                type="checkbox"
-                name="hasSizes"
-                checked={formData.hasSizes}
-                onChange={handleChange}
-                className="w-4 h-4 text-primary rounded"
-              />
-              <span className="text-sm font-medium text-gray-700">Has Sizes</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-              <input
-                type="checkbox"
-                name="hasColors"
-                checked={formData.hasColors}
-                onChange={handleChange}
-                className="w-4 h-4 text-primary rounded"
-              />
-              <span className="text-sm font-medium text-gray-700">Has Colors</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-              <input
-                type="checkbox"
-                name="isActive"
-                checked={formData.isActive}
-                onChange={handleChange}
-                className="w-4 h-4 text-primary rounded"
-              />
-              <span className="text-sm font-medium text-gray-700">Active</span>
-            </label>
-          </div>
-
-          {/* Custom Sizes */}
-          {formData.hasSizes && (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Custom Sizes (comma separated, leave empty for default)
-              </label>
-              <input
-                type="text"
-                name="customSizes"
-                value={formData.customSizes}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="e.g., 28, 30, 32, 34, 36, 38, 40"
-              />
-            </div>
-          )}
-
-          {/* Detail Fields */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Custom Detail Fields</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Define what extra details this product type should have (e.g., Fabric, Sleeve Type for T-Shirts).
-            </p>
-
-            {/* Existing Fields */}
-            {formData.detailFields.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {formData.detailFields.map((field, idx) => (
-                  <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-800 text-sm">{field.fieldName}</span>
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                        {field.fieldType}
-                      </span>
-                      {field.required && (
-                        <span className="ml-1 text-xs text-red-500">required</span>
-                      )}
-                      {field.options?.length > 0 && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Options: {field.options.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeField(idx)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add New Field */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-3">
-              <h4 className="text-sm font-semibold text-blue-800">Add New Field</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={newField.fieldName}
-                  onChange={(e) => setNewField(prev => ({ ...prev, fieldName: e.target.value }))}
-                  className="input-field"
-                  placeholder="Field Name (e.g., Fabric)"
-                />
-                <select
-                  value={newField.fieldType}
-                  onChange={(e) => setNewField(prev => ({ ...prev, fieldType: e.target.value }))}
-                  className="input-field"
-                >
-                  {FIELD_TYPES.map(ft => (
-                    <option key={ft.value} value={ft.value}>{ft.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {(newField.fieldType === 'select' || newField.fieldType === 'multiselect') && (
-                <input
-                  type="text"
-                  value={newField.options}
-                  onChange={(e) => setNewField(prev => ({ ...prev, options: e.target.value }))}
-                  className="input-field"
-                  placeholder="Options (comma separated, e.g., Cotton, Polyester, Blend)"
-                />
-              )}
-
-              {(newField.fieldType === 'text' || newField.fieldType === 'number') && (
-                <input
-                  type="text"
-                  value={newField.placeholder}
-                  onChange={(e) => setNewField(prev => ({ ...prev, placeholder: e.target.value }))}
-                  className="input-field"
-                  placeholder="Placeholder text (optional)"
-                />
-              )}
-
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newField.required}
-                    onChange={(e) => setNewField(prev => ({ ...prev, required: e.target.checked }))}
-                    className="w-4 h-4 text-primary rounded"
-                  />
-                  <span className="text-sm text-gray-700">Required field</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={addField}
-                  className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Field
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button type="button" onClick={onClose} className="flex-1 btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" className="flex-1 btn-primary">
-              {productType ? 'Update Product Type' : 'Create Product Type'}
-            </button>
-          </div>
-        </form>
-      </div>
+      </form>
     </div>
   );
-};
-
-export default ProductTypes;
+}
