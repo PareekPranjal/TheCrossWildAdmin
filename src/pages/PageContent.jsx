@@ -697,12 +697,27 @@ const SECTION_SCHEMA = {
     arrays: [],
   },
   'home/why-choose': {
-    label: 'Customize & Promote Section',
+    label: 'Brand Content (Intro / Capabilities / Why Choose / Get the Best Result)',
     textFields: [
+      // Intro section (top of HomeBrandContent)
+      { key: 'introBadge', multiline: false },
+      { key: 'introHeading', multiline: false },
+      { key: 'introParagraph', multiline: true },
+      // Capabilities heading
+      { key: 'capabilitiesHeading', multiline: false },
+      // "Customize & Promote" section
+      { key: 'customizeHeading', multiline: false },
+      { key: 'customizeParagraph', multiline: true },
+      // Legacy aliases (kept so existing saved data still renders)
       { key: 'heading', multiline: false },
       { key: 'description', multiline: true },
+      // "Why Choose The CrossWild" — heading above the 01/02/03 cards
+      { key: 'whyChooseHeading', multiline: false },
+      // "Get the Best Result" section
+      { key: 'bestResultsHeading', multiline: false },
+      { key: 'bestResultsParagraph', multiline: true },
     ],
-    arrays: [{ key: 'points', type: 'features', label: 'Key Points' }],
+    arrays: [{ key: 'points', type: 'features', label: 'Key Points (legacy — unused by site)' }],
   },
   'about-us/banner': {
     label: 'Page Banner',
