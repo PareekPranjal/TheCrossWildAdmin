@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
-import { Plus, Edit, Trash2, Search, Eye, ChevronDown, ChevronRight, Package } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Eye, Package } from 'lucide-react';
 import ProductModal from '../components/ProductModal';
 
 // Category / subcategory data (same as ProductModal)
@@ -102,23 +102,15 @@ const Products = () => {
   const { products, deleteProduct } = useAdmin();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [expandedCategories, setExpandedCategories] = useState([]);
 
-  // ─── Compute category & subcategory counts ───
+  // ─── Compute category counts ───
   const categoryCounts = {};
-  const subcategoryCounts = {}; // { 'tshirts': { 'dry-fit': 3, 'cotton': 5 } }
-
   products.forEach(p => {
     if (p.productCategories && p.productCategories.length > 0) {
       p.productCategories.forEach(pc => {
         categoryCounts[pc.category] = (categoryCounts[pc.category] || 0) + 1;
-        if (!subcategoryCounts[pc.category]) subcategoryCounts[pc.category] = {};
-        (pc.subcategories || []).forEach(sub => {
-          subcategoryCounts[pc.category][sub] = (subcategoryCounts[pc.category][sub] || 0) + 1;
-        });
       });
     } else if (p.category) {
       categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
@@ -132,14 +124,7 @@ const Products = () => {
     let matchesCategory = true;
     if (selectedCategory !== 'all') {
       if (product.productCategories && product.productCategories.length > 0) {
-        const inCat = product.productCategories.some(pc => pc.category === selectedCategory);
-        matchesCategory = inCat;
-
-        if (selectedSubcategory && matchesCategory) {
-          matchesCategory = product.productCategories.some(
-            pc => pc.category === selectedCategory && pc.subcategories?.includes(selectedSubcategory)
-          );
-        }
+        matchesCategory = product.productCategories.some(pc => pc.category === selectedCategory);
       } else {
         matchesCategory = product.category === selectedCategory;
       }
@@ -162,31 +147,6 @@ const Products = () => {
   const handleAdd = () => {
     setEditingProduct(null);
     setIsModalOpen(true);
-  };
-
-  const toggleExpandCategory = (slug) => {
-    setExpandedCategories(prev =>
-      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
-    );
-  };
-
-  const handleCategoryClick = (slug) => {
-    if (selectedCategory === slug) {
-      setSelectedCategory('all');
-      setSelectedSubcategory('');
-    } else {
-      setSelectedCategory(slug);
-      setSelectedSubcategory('');
-    }
-  };
-
-  const handleSubcategoryClick = (catSlug, subSlug) => {
-    setSelectedCategory(catSlug);
-    if (selectedSubcategory === subSlug) {
-      setSelectedSubcategory('');
-    } else {
-      setSelectedSubcategory(subSlug);
-    }
   };
 
   return (
@@ -218,34 +178,31 @@ const Products = () => {
               <p className="text-sm text-gray-500">Showing</p>
               <p className="text-xl font-bold text-orange-600">
                 {filteredProducts.length} {getCategoryName(selectedCategory)}
-                {selectedSubcategory && (
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    ({PRODUCT_CATEGORIES.find(c => c.slug === selectedCategory)?.subcategories.find(s => s.slug === selectedSubcategory)?.name})
-                  </span>
-                )}
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Category Cards with Counts */}
+      {/* Category Filter */}
       <div className="card">
-        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-4">Categories</h3>
+        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-4">Filter by Category</h3>
 
-        <div className="space-y-2">
-          {/* All categories button */}
+        <div className="flex flex-wrap gap-2">
+          {/* All Products */}
           <button
-            onClick={() => { setSelectedCategory('all'); setSelectedSubcategory(''); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+            onClick={() => setSelectedCategory('all')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
               selectedCategory === 'all'
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                ? 'bg-orange-500 text-white shadow'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <span className="text-lg">📋</span>
-            <span className="flex-1 font-medium">All Categories</span>
-            <span className={`text-lg font-bold ${selectedCategory === 'all' ? 'text-white' : 'text-gray-800'}`}>
+            <span>📋</span>
+            <span>All Products</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              selectedCategory === 'all' ? 'bg-white/25 text-white' : 'bg-white text-gray-600'
+            }`}>
               {products.length}
             </span>
           </button>
@@ -253,73 +210,24 @@ const Products = () => {
           {PRODUCT_CATEGORIES.map(cat => {
             const count = categoryCounts[cat.slug] || 0;
             const isActive = selectedCategory === cat.slug;
-            const isExpanded = expandedCategories.includes(cat.slug);
-            const hasSubs = cat.subcategories.length > 0;
-            const subCounts = subcategoryCounts[cat.slug] || {};
-
             return (
-              <div key={cat.slug}>
-                <div className="flex items-center gap-1">
-                  {/* Category button */}
-                  <button
-                    onClick={() => handleCategoryClick(cat.slug)}
-                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
-                      isActive
-                        ? 'bg-orange-500 text-white'
-                        : count > 0
-                          ? 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                          : 'bg-gray-50/50 text-gray-400'
-                    }`}
-                  >
-                    <span className="text-lg">{cat.icon}</span>
-                    <span className="flex-1 font-medium text-sm">{cat.name}</span>
-                    <span className={`font-bold text-lg ${isActive ? 'text-white' : count > 0 ? 'text-gray-800' : 'text-gray-300'}`}>
-                      {count}
-                    </span>
-                  </button>
-
-                  {/* Expand button for subcategories */}
-                  {hasSubs && count > 0 && (
-                    <button
-                      onClick={() => toggleExpandCategory(cat.slug)}
-                      className="p-3 rounded-xl hover:bg-gray-100 transition-colors text-gray-500"
-                    >
-                      {isExpanded
-                        ? <ChevronDown className="w-4 h-4" />
-                        : <ChevronRight className="w-4 h-4" />
-                      }
-                    </button>
-                  )}
-                </div>
-
-                {/* Subcategory counts */}
-                {hasSubs && isExpanded && count > 0 && (
-                  <div className="ml-10 mt-1 mb-2 space-y-1">
-                    {cat.subcategories.map(sub => {
-                      const subCount = subCounts[sub.slug] || 0;
-                      const isSubActive = selectedCategory === cat.slug && selectedSubcategory === sub.slug;
-                      return (
-                        <button
-                          key={sub.slug}
-                          onClick={() => handleSubcategoryClick(cat.slug, sub.slug)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all ${
-                            isSubActive
-                              ? 'bg-blue-500 text-white'
-                              : subCount > 0
-                                ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                                : 'text-gray-300'
-                          }`}
-                        >
-                          <span className="flex-1">{sub.name}</span>
-                          <span className={`font-semibold ${isSubActive ? 'text-white' : subCount > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
-                            {subCount}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <button
+                key={cat.slug}
+                onClick={() => setSelectedCategory(cat.slug)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-orange-500 text-white shadow'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-white text-gray-600'
+                }`}>
+                  {count}
+                </span>
+              </button>
             );
           })}
         </div>

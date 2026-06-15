@@ -79,8 +79,21 @@ export const AdminProvider = ({ children }) => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const response = await productsAPI.getAll();
-      const productsData = response.products || [];
+      // Backend paginates (default 50, max 100 per page). Fetch every page so the
+      // admin shows ALL products — otherwise older items (e.g. t-shirts) get
+      // stranded on later pages and never appear. See productController.getAllProducts.
+      const PAGE_SIZE = 100;
+      const first = await productsAPI.getAll({ limit: PAGE_SIZE, page: 1 });
+      let productsData = first.products || [];
+      const totalPages = first.totalPages || 1;
+      if (totalPages > 1) {
+        const rest = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) =>
+            productsAPI.getAll({ limit: PAGE_SIZE, page: i + 2 })
+          )
+        );
+        rest.forEach(r => { productsData = productsData.concat(r.products || []); });
+      }
       const mappedProducts = productsData.map(p => ({
         ...p,
         id: p._id || p.id,
